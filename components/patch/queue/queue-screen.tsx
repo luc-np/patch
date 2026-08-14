@@ -203,7 +203,17 @@ export function QueueScreen({
         {/* Toolbar */}
         <div className="flex shrink-0 items-center gap-3 px-4 py-2.5">
           <h1 className="text-[15px] font-extrabold tracking-tight">
-            {activeProjectSlug ?? VIEW_LABEL[view]}
+            {activeProjectSlug ? (
+              <Link
+                href={`/projects/${activeProjectSlug}`}
+                className="hover:underline hover:underline-offset-3"
+                title="Abrir a tela do projeto"
+              >
+                {activeProjectSlug}
+              </Link>
+            ) : (
+              VIEW_LABEL[view]
+            )}
           </h1>
           <span className="font-mono text-[11px] text-muted-foreground tnum">
             {items.length}

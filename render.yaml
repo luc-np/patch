@@ -1,0 +1,67 @@
+# Infraestrutura do Patch no Render:
+# 1 Web Service (Next.js) · 1 Background Worker · 1 Cron Job · 1 Postgres gerenciado.
+# O Postgres do Render já traz a extensão pgvector — a migration 0000 a habilita.
+
+databases:
+  - name: patch-db
+    plan: basic-256mb
+    postgresMajorVersion: "17"
+
+services:
+  - type: web
+    name: patch-web
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run db:migrate && npm run build
+    startCommand: npm start
+    healthCheckPath: /login
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: patch-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - fromGroup: patch-env
+
+  - type: worker
+    name: patch-worker
+    runtime: node
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npx tsx worker/index.ts
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: patch-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - fromGroup: patch-env
+
+  - type: cron
+    name: patch-ingestion-cron
+    runtime: node
+    plan: starter
+    schedule: "*/30 * * * *" # sincronização dos repos a cada 30 min
+    buildCommand: npm ci
+    startCommand: npx tsx scripts/enqueue-ingestion.ts
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: patch-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - fromGroup: patch-env
+
+envVarGroups:
+  # Criar o grupo "patch-env" no painel do Render com:
+  # BETTER_AUTH_SECRET, BETTER_AUTH_URL, SMTP_URL, EMAIL_FROM,
+  # ANTHROPIC_API_KEY, ANTHROPIC_MODEL, VOYAGE_API_KEY, VOYAGE_MODEL,
+  # TRIAGE_CONFIDENCE_MIN, WHATSAPP_VERIFY_TOKEN, WHATSAPP_APP_SECRET,
+  # WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID,
+  # WHATSAPP_DEFAULT_PROJECT_SLUG, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY,
+  # MAX_FILE_BYTES
+  - name: patch-env
+    envVars: []

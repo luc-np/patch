@@ -31,6 +31,12 @@ export default async function AppLayout({
           </Link>
         </nav>
         <div className="ml-auto flex items-center gap-4">
+          <Link
+            href="/design"
+            className="font-mono text-[10.5px] text-muted-foreground hover:text-foreground"
+          >
+            §design
+          </Link>
           <ThemeToggle />
           <span className="font-mono text-[10.5px] text-muted-foreground">
             {actor.name.toLowerCase()}
