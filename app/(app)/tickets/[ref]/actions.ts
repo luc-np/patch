@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getActor } from "@/lib/auth/session";
 import { postMessage } from "@/services/messages";
 import { assignTicket, updateTicketStatus } from "@/services/tickets";
-import { sendEmail } from "@/lib/email/mailer";
+import { enqueue, QUEUE } from "@/lib/queue";
 import { db } from "@/db/client";
 import { users, tickets as ticketsTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -37,13 +37,16 @@ export async function sendReply(input: {
       where: eq(users.id, ticket.authorId),
     });
     if (author && !author.email.endsWith("@wa.invalid")) {
-      await sendEmail({
-        to: author.email,
-        subject: `Resposta ao seu chamado — ${ticket.title}`,
-        text: `${parsed.data.body}\n\n—\nVocê pode acompanhar em ${process.env.BETTER_AUTH_URL ?? ""}/meus-chamados`,
-      }).catch(() => {
-        /* o e-mail falhar não desfaz a mensagem; a fila da etapa 6 traz retry */
-      });
+      // Fila com retry: o e-mail falhar não desfaz a mensagem.
+      await enqueue(
+        QUEUE.email,
+        {
+          to: author.email,
+          subject: `Resposta ao seu chamado — ${ticket.title}`,
+          text: `${parsed.data.body}\n\n—\nVocê pode acompanhar em ${process.env.BETTER_AUTH_URL ?? ""}/meus-chamados`,
+        },
+        { retryLimit: 5, retryBackoff: true },
+      );
     }
   }
 
