@@ -38,6 +38,7 @@ export function TicketScreen({
   members,
   activity,
   aiSlot,
+  codeSlot,
   waWindow = null,
 }: {
   ticket: TicketDetail;
@@ -46,6 +47,8 @@ export function TicketScreen({
   activity: ActivityItem[];
   /** bloco de sugestão da IA — entra na etapa de triagem */
   aiSlot?: React.ReactNode;
+  /** bloco `código` do rail direito (proposta de PR em .md) */
+  codeSlot?: React.ReactNode;
   waWindow?: WaWindow;
 }) {
   const router = useRouter();
@@ -326,6 +329,8 @@ export function TicketScreen({
             </dd>
           </dl>
         </section>
+
+        {codeSlot}
 
         <section className="border-t border-border p-4">
           <p className="kicker mb-2">atividade</p>

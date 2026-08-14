@@ -5,6 +5,8 @@ import { listMessages } from "@/services/messages";
 import { listProjectMembers, listTicketActivity } from "@/services/members";
 import { getLatestSuggestion } from "@/services/suggestions";
 import { AiSuggestion, type SuggestionData } from "@/components/patch/ai/ai-suggestion";
+import { MarkdownPrPanel } from "@/components/patch/ticket/markdown-pr-panel";
+import { getProjectBySlug, getLatestIngestion } from "@/services/projects";
 import { windowState } from "@/services/whatsapp";
 import { db } from "@/db/client";
 import { whatsappContacts } from "@/db/schema";
@@ -70,6 +72,10 @@ export default async function TicketPage({
     };
   }
 
+  const projectResult = await getProjectBySlug(actor, ticket.projectSlug);
+  const project = projectResult.ok ? projectResult.value : null;
+  const lastIngestion = project ? await getLatestIngestion(project.id) : null;
+
   return (
     <TicketScreen
       ticket={ticket}
@@ -77,6 +83,17 @@ export default async function TicketPage({
       members={members}
       activity={activity}
       waWindow={waWindow}
+      codeSlot={
+        actor.role !== "guest" ? (
+          <MarkdownPrPanel
+            ticketId={ticket.id}
+            ticketNumber={ticket.number}
+            defaultBranch={project?.defaultBranch ?? "main"}
+            lastIndexedSha={lastIngestion?.toSha ?? null}
+            hasRepo={Boolean(project?.repoUrl)}
+          />
+        ) : undefined
+      }
       aiSlot={
         // Tasks internas não passam pela triagem — o bloco só aparece onde faz sentido
         ticket.type !== "task" ? (
