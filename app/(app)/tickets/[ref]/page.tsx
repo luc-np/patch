@@ -3,6 +3,8 @@ import { getActor } from "@/lib/auth/session";
 import { getTicketByNumber } from "@/services/tickets";
 import { listMessages } from "@/services/messages";
 import { listProjectMembers, listTicketActivity } from "@/services/members";
+import { getLatestSuggestion } from "@/services/suggestions";
+import { AiSuggestion, type SuggestionData } from "@/components/patch/ai/ai-suggestion";
 import { windowState } from "@/services/whatsapp";
 import { db } from "@/db/client";
 import { whatsappContacts } from "@/db/schema";
@@ -25,11 +27,34 @@ export default async function TicketPage({
   if (!ticketResult.ok) notFound();
   const ticket = ticketResult.value;
 
-  const [messagesResult, membersResult, activity] = await Promise.all([
-    listMessages(actor, ticket.id),
-    listProjectMembers(actor, ticket.projectId),
-    listTicketActivity(ticket.id),
-  ]);
+  const [messagesResult, membersResult, activity, suggestionResult] =
+    await Promise.all([
+      listMessages(actor, ticket.id),
+      listProjectMembers(actor, ticket.projectId),
+      listTicketActivity(ticket.id),
+      getLatestSuggestion(actor, ticket.id),
+    ]);
+
+  const members = membersResult.ok ? membersResult.value : [];
+  let suggestionData: SuggestionData | null = null;
+  if (suggestionResult.ok && suggestionResult.value) {
+    const s = suggestionResult.value;
+    suggestionData = {
+      id: s.id,
+      suggestedUserId: s.suggestedUserId,
+      suggestedUserName: s.suggestedUserName,
+      confidence: s.confidence,
+      rationale: s.rationale,
+      evidence: s.evidence,
+      improvements: s.improvements,
+      model: s.model,
+      indexedAt: s.indexedAt ? s.indexedAt.toISOString() : null,
+      decision: s.decision,
+      decidedAt: s.decidedAt ? s.decidedAt.toISOString() : null,
+      decidedByMe: s.decidedBy === actor.id,
+      createdAt: s.createdAt.toISOString(),
+    };
+  }
 
   // Janela de 24h da Meta — o time precisa ver quando ela está fechando.
   let waWindow: WaWindow = null;
@@ -49,9 +74,20 @@ export default async function TicketPage({
     <TicketScreen
       ticket={ticket}
       messages={messagesResult.ok ? messagesResult.value : []}
-      members={membersResult.ok ? membersResult.value : []}
+      members={members}
       activity={activity}
       waWindow={waWindow}
+      aiSlot={
+        // Tasks internas não passam pela triagem — o bloco só aparece onde faz sentido
+        ticket.type !== "task" ? (
+          <AiSuggestion
+            suggestion={suggestionData}
+            members={members}
+            ticketId={ticket.id}
+            currentAssigneeName={ticket.assigneeName}
+          />
+        ) : undefined
+      }
     />
   );
 }

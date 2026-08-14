@@ -3,6 +3,8 @@ import { db } from "@/db/client";
 import { projects, projectMembers, users } from "@/db/schema";
 import { auth } from "@/lib/auth/auth";
 import { createTicket } from "@/services/tickets";
+import { enqueue, QUEUE } from "@/lib/queue";
+import { randomUUID } from "node:crypto";
 import type { Actor } from "@/lib/auth/policies";
 import { ok, err, type Result, type NotFound } from "@/lib/result";
 
@@ -107,6 +109,13 @@ export async function openPortalTicket(
     origin: "portal",
   });
   if (!result.ok) return err("forbidden");
+
+  // Chamado externo entra direto na triagem por IA
+  await enqueue(
+    QUEUE.triage,
+    { ticketId: result.value.id, correlationId: randomUUID().slice(0, 8) },
+    { retryLimit: 3, retryBackoff: true },
+  );
 
   return ok({ ticketNumber: result.value.number, createdAccount });
 }

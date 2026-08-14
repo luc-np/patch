@@ -1,8 +1,10 @@
 "use server";
 
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import { getActor } from "@/lib/auth/session";
 import { createTicket } from "@/services/tickets";
+import { enqueue, QUEUE } from "@/lib/queue";
 
 const schema = z.object({
   projectId: z.uuid(),
@@ -30,5 +32,14 @@ export async function createInternalTicket(input: {
     origin: "internal",
   });
   if (!result.ok) return { ok: false, error: "Não deu para abrir agora." };
+
+  // Bugs também passam pela triagem; task interna geralmente já sabe o dono.
+  if (parsed.data.type === "bug") {
+    await enqueue(
+      QUEUE.triage,
+      { ticketId: result.value.id, correlationId: randomUUID().slice(0, 8) },
+      { retryLimit: 3, retryBackoff: true },
+    );
+  }
   return { ok: true, number: result.value.number };
 }

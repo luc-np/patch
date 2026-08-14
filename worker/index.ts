@@ -7,6 +7,7 @@ import {
   handleWhatsappSend,
 } from "./handlers/whatsapp";
 import { handleIngestion } from "./handlers/ingestion";
+import { handleTriage } from "./handlers/triage";
 
 /**
  * Background Worker: processa todas as filas do pg-boss.
@@ -45,6 +46,7 @@ async function main() {
   register(QUEUE.whatsappInbound, handleWhatsappInbound);
   register(QUEUE.whatsappSend, handleWhatsappSend);
   register(QUEUE.ingestion, handleIngestion);
+  register(QUEUE.triage, handleTriage);
 
   log.info("worker no ar", { queues: Object.values(QUEUE) });
 
