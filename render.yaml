@@ -12,7 +12,9 @@ services:
     name: patch-web
     runtime: node
     plan: starter
-    buildCommand: npm ci && npm run db:migrate && npm run build
+    # --include=dev: o Render exporta NODE_ENV=production e o npm ci pularia
+    # drizzle-kit/typescript/tailwind, que o build precisa
+    buildCommand: npm ci --include=dev && npm run db:migrate && npm run build
     startCommand: npm start
     healthCheckPath: /login
     envVars:
@@ -28,7 +30,7 @@ services:
     name: patch-worker
     runtime: node
     plan: starter
-    buildCommand: npm ci
+    buildCommand: npm ci --include=dev # tsx e dotenv são devDeps, mas o runtime precisa deles
     startCommand: npx tsx worker/index.ts
     envVars:
       - key: DATABASE_URL
@@ -44,7 +46,7 @@ services:
     runtime: node
     plan: starter
     schedule: "*/30 * * * *" # sincronização dos repos a cada 30 min
-    buildCommand: npm ci
+    buildCommand: npm ci --include=dev # tsx e dotenv são devDeps, mas o runtime precisa deles
     startCommand: npx tsx scripts/enqueue-ingestion.ts
     envVars:
       - key: DATABASE_URL
