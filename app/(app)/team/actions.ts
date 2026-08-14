@@ -3,6 +3,38 @@
 import { z } from "zod";
 import { getActor } from "@/lib/auth/session";
 import { createArea, declareExpertise } from "@/services/expertise";
+import { createInvite } from "@/services/invites";
+
+const inviteSchema = z.object({
+  email: z.email(),
+  projectId: z.uuid(),
+  role: z.enum(["dev", "cs", "qa", "designer", "po"]),
+});
+
+export async function inviteAction(input: {
+  email: string;
+  projectId: string;
+  role: "dev" | "cs" | "qa" | "designer" | "po";
+}): Promise<{ ok: boolean; error?: string }> {
+  const actor = await getActor();
+  if (!actor) return { ok: false, error: "Sessão expirada." };
+  const parsed = inviteSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Confira o e-mail e a função." };
+
+  const result = await createInvite(actor, parsed.data);
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        result.error === "already_member"
+          ? "Esta pessoa já é membro do projeto."
+          : result.error === "forbidden"
+            ? "Só admin convida."
+            : "Não deu para convidar agora.",
+    };
+  }
+  return { ok: true };
+}
 
 const areaSchema = z.object({
   projectId: z.uuid(),

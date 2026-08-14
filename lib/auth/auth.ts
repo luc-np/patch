@@ -25,6 +25,10 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
+      // Quem chega por convite já provou a posse do e-mail clicando no link —
+      // o e-mail de verificação seria ruído redundante.
+      const { hasPendingInvite } = await import("@/services/invites");
+      if (await hasPendingInvite(user.email)) return;
       await sendEmail({
         to: user.email,
         subject: "Confirme seu e-mail — Patch",

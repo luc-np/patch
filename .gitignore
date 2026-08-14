@@ -22,3 +22,7 @@ coverage/
 *.pem
 .DS_Store
 *.tsbuildinfo
+
+# material de especificação (fica local, não vai para o repo)
+design/
+prompt.md

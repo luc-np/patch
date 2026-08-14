@@ -8,7 +8,7 @@ import { enqueue, QUEUE } from "@/lib/queue";
 
 const schema = z.object({
   projectId: z.uuid(),
-  type: z.enum(["task", "bug"]),
+  type: z.enum(["task", "bug", "support"]),
   title: z.string().min(1).max(200),
   body: z.string().max(20_000),
   priority: z.enum(["low", "normal", "high", "urgent"]),
@@ -16,7 +16,7 @@ const schema = z.object({
 
 export async function createInternalTicket(input: {
   projectId: string;
-  type: "task" | "bug";
+  type: "task" | "bug" | "support";
   title: string;
   body: string;
   priority: "low" | "normal" | "high" | "urgent";
@@ -33,8 +33,8 @@ export async function createInternalTicket(input: {
   });
   if (!result.ok) return { ok: false, error: "Não deu para abrir agora." };
 
-  // Bugs também passam pela triagem; task interna geralmente já sabe o dono.
-  if (parsed.data.type === "bug") {
+  // Bugs e chamados passam pela triagem; task interna geralmente já sabe o dono.
+  if (parsed.data.type !== "task") {
     await enqueue(
       QUEUE.triage,
       { ticketId: result.value.id, correlationId: randomUUID().slice(0, 8) },

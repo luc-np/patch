@@ -18,7 +18,7 @@ export function NewTicketForm({ projects }: { projects: ProjectSummary[] }) {
     startTransition(async () => {
       const res = await createInternalTicket({
         projectId: String(data.get("projectId")),
-        type: String(data.get("type")) as "task" | "bug",
+        type: String(data.get("type")) as "task" | "bug" | "support",
         title: String(data.get("title")),
         body: String(data.get("body")),
         priority: String(data.get("priority")) as
@@ -41,7 +41,7 @@ export function NewTicketForm({ projects }: { projects: ProjectSummary[] }) {
         <Link href="/" className="text-[13px] text-muted-foreground hover:text-foreground">
           ← fila
         </Link>
-        <h1 className="mt-3 text-[22px]">Abrir task interna</h1>
+        <h1 className="mt-3 text-[22px]">Abrir task ou chamado</h1>
         <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
             <span className="text-[13.5px] font-semibold">Projeto</span>
@@ -66,6 +66,7 @@ export function NewTicketForm({ projects }: { projects: ProjectSummary[] }) {
               >
                 <option value="task">task</option>
                 <option value="bug">bug</option>
+                <option value="support">chamado</option>
               </select>
             </label>
             <label className="flex flex-1 flex-col gap-1.5">

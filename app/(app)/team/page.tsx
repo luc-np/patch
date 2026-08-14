@@ -3,8 +3,10 @@ import { getActor } from "@/lib/auth/session";
 import { getTeamExpertise, listAreasForActor } from "@/services/expertise";
 import { listProjectsForActor } from "@/services/projects";
 import { listStaffUsers } from "@/services/members";
+import { listPendingInvites } from "@/services/invites";
 import { formatShortTime } from "@/lib/format";
 import { DeclareAreaFooter } from "./team-client";
+import { InviteFooter } from "./invite-client";
 
 const TEAM_GRID = "200px minmax(0,1fr) minmax(0,1fr) 120px";
 
@@ -14,10 +16,11 @@ export default async function TeamPage() {
 
   const teamResult = await getTeamExpertise(actor);
   const team = teamResult.ok ? teamResult.value : [];
-  const [areas, projects, staffUsers] = await Promise.all([
+  const [areas, projects, staffUsers, pendingInvites] = await Promise.all([
     listAreasForActor(actor),
     listProjectsForActor(actor),
     listStaffUsers(actor),
+    listPendingInvites(actor),
   ]);
 
   return (
@@ -115,13 +118,33 @@ export default async function TeamPage() {
         ))}
       </div>
 
-      <footer className="flex shrink-0 items-center gap-4 border-t-2 border-rule px-6 py-2.5">
+      {pendingInvites.length > 0 && (
+        <div className="border-t border-border px-6 py-2">
+          <p className="kicker mb-1">convites pendentes</p>
+          <ul className="flex flex-wrap gap-x-6 gap-y-1 font-mono text-[11px] text-muted-foreground">
+            {pendingInvites.map((inv) => (
+              <li key={inv.id}>
+                {inv.email} · {inv.projectSlug} · {inv.role} · expira{" "}
+                {new Date(inv.expiresAt).toLocaleDateString("pt-BR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                })}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <footer className="flex shrink-0 flex-wrap items-center gap-4 border-t-2 border-rule px-6 py-2.5">
         {actor.role === "admin" && (
-          <DeclareAreaFooter
-            projects={projects}
-            areas={areas}
-            people={staffUsers.map((u) => ({ id: u.id, name: u.name }))}
-          />
+          <>
+            <InviteFooter projects={projects} />
+            <DeclareAreaFooter
+              projects={projects}
+              areas={areas}
+              people={staffUsers.map((u) => ({ id: u.id, name: u.name }))}
+            />
+          </>
         )}
         <span className="ml-auto font-mono text-[10.5px] text-muted-foreground">
           área declarada pesa mais que inferida na sugestão — e a inferida nunca

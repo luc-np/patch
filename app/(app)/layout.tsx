@@ -29,6 +29,20 @@ export default async function AppLayout({
           >
             equipe
           </Link>
+          <Link
+            href="/tickets/new"
+            className="text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-3"
+          >
+            + chamado
+          </Link>
+          {actor.role === "admin" && (
+            <Link
+              href="/projects/new"
+              className="text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-3"
+            >
+              + projeto
+            </Link>
+          )}
         </nav>
         <div className="ml-auto flex items-center gap-4">
           <Link
