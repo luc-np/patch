@@ -99,3 +99,107 @@ export async function getLatestIngestion(projectId: string) {
     orderBy: (runs, { desc }) => [desc(runs.startedAt)],
   });
 }
+
+export type ProjectStats = {
+  open: number;
+  unassigned: number;
+  medianFirstResponseMin: number | null;
+  suggestionsAccepted: number;
+  suggestionsDecided: number;
+  suggestionsOverridden: number;
+  dueToday: { number: number }[];
+};
+
+/** Os quatro números da tela do projeto — sem seta, sem porcentagem verde. */
+export async function getProjectStats(projectId: string): Promise<ProjectStats> {
+  const { tickets: t, assignmentSuggestions: s } = await import("@/db/schema");
+  const { and, isNull, gte, lt, ne, sql: sqlTag } = await import("drizzle-orm");
+
+  const openStatuses = ["open", "in_analysis", "waiting_author", "in_review"] as const;
+  const startToday = new Date();
+  startToday.setHours(0, 0, 0, 0);
+  const startTomorrow = new Date(startToday);
+  startTomorrow.setDate(startTomorrow.getDate() + 1);
+
+  const [open] = await db
+    .select({ n: count() })
+    .from(t)
+    .where(and(eq(t.projectId, projectId), inArray(t.status, [...openStatuses])));
+  const [unassigned] = await db
+    .select({ n: count() })
+    .from(t)
+    .where(
+      and(
+        eq(t.projectId, projectId),
+        inArray(t.status, [...openStatuses]),
+        isNull(t.assigneeId),
+      ),
+    );
+  const [median] = await db
+    .select({
+      m: sqlTag<number | null>`percentile_cont(0.5) within group (order by extract(epoch from (${t.firstResponseAt} - ${t.createdAt})))`,
+    })
+    .from(t)
+    .where(and(eq(t.projectId, projectId), sqlTag`${t.firstResponseAt} is not null`));
+  const [decided] = await db
+    .select({
+      total: count(),
+      accepted: sqlTag<number>`count(*) filter (where ${s.decision} = 'accepted')`,
+      rejected: sqlTag<number>`count(*) filter (where ${s.decision} = 'rejected')`,
+    })
+    .from(s)
+    .innerJoin(t, eq(s.ticketId, t.id))
+    .where(and(eq(t.projectId, projectId), ne(s.decision, "pending")));
+  const dueToday = await db
+    .select({ number: t.number })
+    .from(t)
+    .where(
+      and(
+        eq(t.projectId, projectId),
+        inArray(t.status, [...openStatuses]),
+        gte(t.dueAt, startToday),
+        lt(t.dueAt, startTomorrow),
+      ),
+    );
+
+  return {
+    open: open?.n ?? 0,
+    unassigned: unassigned?.n ?? 0,
+    medianFirstResponseMin:
+      median?.m != null ? Math.round(Number(median.m) / 60) : null,
+    suggestionsAccepted: Number(decided?.accepted ?? 0),
+    suggestionsDecided: decided?.total ?? 0,
+    suggestionsOverridden: Number(decided?.rejected ?? 0),
+    dueToday,
+  };
+}
+
+/** Pastas com atividade no git que nenhuma área declarada cobre. */
+export async function getUnownedFolders(projectId: string): Promise<string[]> {
+  const { codeOwnership, expertiseAreas } = await import("@/db/schema");
+  const picomatch = (await import("picomatch")).default;
+
+  const ownership = await db
+    .select({ path: codeOwnership.path })
+    .from(codeOwnership)
+    .where(eq(codeOwnership.projectId, projectId));
+  const areas = await db.query.expertiseAreas.findMany({
+    where: eq(expertiseAreas.projectId, projectId),
+  });
+  const matchers = areas
+    .filter((a) => a.globs.length > 0)
+    .map((a) => picomatch(a.globs));
+
+  const folders = new Map<string, number>();
+  for (const row of ownership) {
+    const parts = row.path.split("/");
+    if (parts.length < 2) continue;
+    const folder = parts.slice(0, 2).join("/");
+    if (matchers.some((m) => m(row.path))) continue;
+    folders.set(folder, (folders.get(folder) ?? 0) + 1);
+  }
+  return [...folders.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([folder]) => `${folder}/`);
+}
