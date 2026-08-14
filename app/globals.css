@@ -1,0 +1,191 @@
+/* Patch — tokens de tema. Design system: Modernist (Archivo, rubro #ec3013, raio 0, réguas de 2px)
+   + uma família mono (IBM Plex Mono), o único acréscimo ao sistema.
+   Tailwind v4 + shadcn/ui (estratégia de tema: class). Este é o ÚNICO lugar onde cor existe. */
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* ground e tinta */
+  --background: #f3f2f2;          /* papel: ground quente-neutro do Modernist */
+  --foreground: #201e1d;          /* tinta */
+  --card: #eae9e9;                /* superfície: nota interna, código, painel */
+  --card-foreground: #201e1d;
+  --popover: #f3f2f2;
+  --popover-foreground: #201e1d;
+
+  /* ação primária do app interno = tinta (o vermelho é da IA) */
+  --primary: #201e1d;
+  --primary-foreground: #f3f2f2;
+  --secondary: #e2e0e0;
+  --secondary-foreground: #201e1d;
+
+  --muted: #eae9e9;
+  --muted-foreground: #605d5d;    /* grafite: id, hora, caminho, metadado */
+
+  /* accent do shadcn = tint neutro de hover (NÃO é o vermelho) */
+  --accent: #e2e0e0;
+  --accent-foreground: #201e1d;
+
+  --destructive: #ae1800;         /* erro e vencido: rubro fundo, nunca o rubro puro */
+  --destructive-foreground: #f3f2f2;
+
+  --border: color-mix(in srgb, #201e1d 20%, transparent);
+  --rule: color-mix(in srgb, #201e1d 40%, transparent);  /* régua de 2px entre seções */
+  --input: color-mix(in srgb, #201e1d 20%, transparent);
+  --ring: #ec3013;                /* foco: 2px, offset 2px */
+
+  /* ── camada de IA — o único vermelho do produto ── */
+  --ai: #ec3013;                  /* campo, moldura, espinha de confiança, ação primária da IA */
+  --ai-foreground: #f3f2f2;       /* texto sobre o campo rubro */
+  --ai-strong: #ae1800;           /* rubro em tamanho de corpo (contraste) */
+  --ai-tint: #ffe0d9;
+  --ai-faint: #fff2ef;            /* fundo do bloco de confiança alta */
+
+  /* linhas da fila */
+  --row-hover: color-mix(in srgb, #201e1d 5%, transparent);
+  --row-sel: color-mix(in srgb, #201e1d 10%, transparent);
+  --row-h: 36px;                  /* densidade: 36 confortável · 32 densa · 28 compacta */
+
+  /* cor por projeto no portal público (variação = nome e cor) */
+  --project-accent: #ec3013;
+
+  --radius: 0rem;
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+}
+
+.dark {
+  --background: #191817;          /* abaixo do neutro-900 do sistema: o texto não vibra em 8h de uso */
+  --foreground: #f3f2f2;
+  --card: #211f1e;
+  --card-foreground: #f3f2f2;
+  --popover: #211f1e;
+  --popover-foreground: #f3f2f2;
+
+  --primary: #f3f2f2;
+  --primary-foreground: #201e1d;
+  --secondary: #2a2827;
+  --secondary-foreground: #f3f2f2;
+
+  --muted: #211f1e;
+  --muted-foreground: #b3afae;
+
+  --accent: #2a2827;
+  --accent-foreground: #f3f2f2;
+
+  --destructive: #ff9783;
+  --destructive-foreground: #201e1d;
+
+  --border: color-mix(in srgb, #f3f2f2 18%, transparent);
+  --rule: color-mix(in srgb, #f3f2f2 34%, transparent);
+  --input: color-mix(in srgb, #f3f2f2 18%, transparent);
+  --ring: #ff563c;
+
+  --ai: #ff563c;                  /* accent-500 do ramp: o accent puro não passa sobre ground escuro */
+  --ai-foreground: #201e1d;
+  --ai-strong: #ff9783;
+  --ai-tint: #3d1a12;
+  --ai-faint: #241614;
+
+  --row-hover: color-mix(in srgb, #f3f2f2 6%, transparent);
+  --row-sel: color-mix(in srgb, #f3f2f2 11%, transparent);
+
+  --project-accent: #ff563c;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-rule: var(--rule);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-ai: var(--ai);
+  --color-ai-foreground: var(--ai-foreground);
+  --color-ai-strong: var(--ai-strong);
+  --color-ai-tint: var(--ai-tint);
+  --color-ai-faint: var(--ai-faint);
+  --color-row-hover: var(--row-hover);
+  --color-row-sel: var(--row-sel);
+  --color-project-accent: var(--project-accent);
+
+  --font-sans: "Archivo", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --radius-sm: 0rem;
+  --radius-md: 0rem;
+  --radius-lg: 0rem;
+  --radius-xl: 0rem;
+
+  --spacing-row: var(--row-h);
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html, body { height: 100%; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-size: 13px;      /* base do app interno; o portal público sobe para 15–16px */
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* App interno: a raiz é o quadro de rolagem — os painéis rolam por dentro. */
+  #app-shell { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+  h1, h2, h3, h4 { font-weight: 800; letter-spacing: -0.02em; line-height: 1.12; }
+  a { color: var(--ai-strong); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  :focus { outline: none; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  ::selection { background: color-mix(in srgb, var(--ai) 30%, transparent); }
+  /* Número que alinha em coluna é sempre tabular. */
+  .tnum, table td, table th { font-variant-numeric: tabular-nums; }
+}
+
+@layer utilities {
+  /* Régua de 2px entre seções — o divisor forte do Modernist. */
+  .rule-t { border-top: 2px solid var(--rule); }
+  .rule-b { border-bottom: 2px solid var(--rule); }
+  /* Rótulo de seção: mono 10px, tracking largo, caixa alta. */
+  .kicker {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted-foreground);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-pulse, [data-anim] { animation: none !important; }
+  }
+}
+
+/* ── Tailwind v3, se o projeto ainda não estiver na v4 ──────────────────────
+   tailwind.config.ts:
+     darkMode: ["class"],
+     theme: { extend: {
+       colors: { background: "var(--background)", foreground: "var(--foreground)",
+                 ai: { DEFAULT: "var(--ai)", foreground: "var(--ai-foreground)",
+                       strong: "var(--ai-strong)", tint: "var(--ai-tint)", faint: "var(--ai-faint)" },
+                 rule: "var(--rule)", "row-hover": "var(--row-hover)", "row-sel": "var(--row-sel)" },
+       borderRadius: { sm: "0", md: "0", lg: "0", xl: "0" },
+       fontFamily: { sans: ["Archivo", "system-ui", "sans-serif"],
+                     mono: ["IBM Plex Mono", "ui-monospace", "monospace"] },
+     } }
+   ─────────────────────────────────────────────────────────────────────────── */

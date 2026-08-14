@@ -1,0 +1,24 @@
+# dependências
+node_modules/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# produção
+build/
+dist/
+
+# ambiente
+.env
+.env.*
+!.env.example
+
+# testes e cobertura
+coverage/
+
+# diversos
+*.pem
+.DS_Store
+*.tsbuildinfo
