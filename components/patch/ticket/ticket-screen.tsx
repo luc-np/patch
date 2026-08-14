@@ -16,7 +16,12 @@ import {
 import type { TicketDetail } from "@/services/tickets";
 import type { MessageItem } from "@/services/messages";
 import type { MemberItem, ActivityItem } from "@/services/members";
-import { sendReply, assign, setStatus } from "@/app/(app)/tickets/[ref]/actions";
+import {
+  sendReply,
+  assign,
+  setStatus,
+  createTaskFromTicket,
+} from "@/app/(app)/tickets/[ref]/actions";
 
 const ACTIVITY_LABEL: Record<string, string> = {
   "ticket.create": "chamado aberto",
@@ -329,6 +334,30 @@ export function TicketScreen({
             </dd>
           </dl>
         </section>
+
+        {/* Um chamado gera trabalho interno como task, sem misturar as duas coisas */}
+        {ticket.type !== "task" && (
+          <section className="border-t border-border p-4">
+            <p className="kicker mb-2">task</p>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                startTransition(async () => {
+                  const res = await createTaskFromTicket({ ticketId: ticket.id });
+                  if (res.ok && res.number) router.push(`/tickets/${res.number}`);
+                })
+              }
+              className="flex h-8 w-full items-center border border-input px-3 text-[12.5px] font-medium hover:bg-accent disabled:opacity-50"
+            >
+              Criar task deste chamado
+            </button>
+            <p className="mt-1.5 text-[11.5px] text-muted-foreground">
+              A task vai para a área Tasks; este chamado continua sendo a
+              conversa com quem abriu.
+            </p>
+          </section>
+        )}
 
         {codeSlot}
 

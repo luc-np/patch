@@ -40,6 +40,12 @@ export function QueueScreen({
   activeProjectSlug,
   indexStatus,
   resolvedTodayNote,
+  title,
+  createHref,
+  createLabel,
+  showRail = true,
+  showOrigins = true,
+  emptyNote,
 }: {
   items: QueueItem[];
   counts: QueueCounts;
@@ -48,6 +54,13 @@ export function QueueScreen({
   activeProjectSlug: string | null;
   indexStatus: IndexStatus;
   resolvedTodayNote: string | null;
+  /** título fixo da área (Chamados/Tasks); sem ele, usa a visão ativa */
+  title?: string;
+  createHref?: string;
+  createLabel?: string;
+  showRail?: boolean;
+  showOrigins?: boolean;
+  emptyNote?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -102,7 +115,8 @@ export function QueueScreen({
 
   return (
     <div className="flex min-h-0 flex-1">
-      {/* Rail esquerdo */}
+      {/* Rail esquerdo (só na Fila; Chamados/Tasks usam a toolbar) */}
+      {showRail && (
       <aside className="flex w-[214px] shrink-0 flex-col border-r-2 border-rule">
         <div className="p-3">
           <div className="relative">
@@ -197,45 +211,75 @@ export function QueueScreen({
           )}
         </div>
       </aside>
+      )}
 
       {/* Conteúdo */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Toolbar */}
-        <div className="flex shrink-0 items-center gap-3 px-4 py-2.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-3 px-4 py-2.5">
           <h1 className="text-[15px] font-extrabold tracking-tight">
-            {activeProjectSlug ? (
-              <Link
-                href={`/projects/${activeProjectSlug}`}
-                className="hover:underline hover:underline-offset-3"
-                title="Abrir a tela do projeto"
-              >
-                {activeProjectSlug}
-              </Link>
-            ) : (
-              VIEW_LABEL[view]
-            )}
+            {title ??
+              (activeProjectSlug ? (
+                <Link
+                  href={`/projects/${activeProjectSlug}`}
+                  className="hover:underline hover:underline-offset-3"
+                  title="Abrir a tela do projeto"
+                >
+                  {activeProjectSlug}
+                </Link>
+              ) : (
+                VIEW_LABEL[view]
+              ))}
           </h1>
           <span className="font-mono text-[11px] text-muted-foreground tnum">
             {items.length}
           </span>
-          <div className="ml-4 flex items-center border border-border">
-            {ORIGINS.map((o, i) => (
-              <button
-                key={o}
-                type="button"
-                onClick={() => toggleOrigin(o)}
-                className={cn(
-                  "h-6 px-2 font-mono text-[11px]",
-                  i > 0 && "border-l border-border",
-                  activeOrigins.includes(o)
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-row-hover",
-                )}
-              >
-                {ORIGIN_LABEL[o]}
-              </button>
-            ))}
-          </div>
+          {showOrigins && (
+            <div className="ml-4 flex items-center border border-border">
+              {ORIGINS.map((o, i) => (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => toggleOrigin(o)}
+                  className={cn(
+                    "h-6 px-2 font-mono text-[11px]",
+                    i > 0 && "border-l border-border",
+                    activeOrigins.includes(o)
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-row-hover",
+                  )}
+                >
+                  {ORIGIN_LABEL[o]}
+                </button>
+              ))}
+            </div>
+          )}
+          {!showRail && (
+            <div className="relative ml-2">
+              <input
+                ref={searchRef}
+                placeholder="buscar"
+                defaultValue={searchParams.get("q") ?? ""}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter")
+                    setParam("q", e.currentTarget.value || null);
+                  if (e.key === "Escape") e.currentTarget.blur();
+                }}
+                className="h-7 w-48 border border-input bg-background px-2 pr-6 text-[12.5px]"
+              />
+              <kbd className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 border border-border px-1 font-mono text-[10px] leading-[14px] text-muted-foreground">
+                /
+              </kbd>
+            </div>
+          )}
+          {createHref && createLabel && (
+            <Link
+              href={createHref}
+              className="ml-auto flex h-7 items-center bg-primary px-3 text-[12.5px] font-medium text-primary-foreground"
+            >
+              {createLabel}
+            </Link>
+          )}
         </div>
 
         {/* Tabela */}
@@ -256,7 +300,7 @@ export function QueueScreen({
           </div>
 
           {items.length === 0 ? (
-            <EmptyQueue note={resolvedTodayNote} />
+            <EmptyQueue note={emptyNote ?? resolvedTodayNote} />
           ) : (
             items.map((item, i) => (
               <Link

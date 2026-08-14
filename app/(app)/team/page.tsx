@@ -135,21 +135,33 @@ export default async function TeamPage() {
         </div>
       )}
 
-      <footer className="flex shrink-0 flex-wrap items-center gap-4 border-t-2 border-rule px-6 py-2.5">
+      <footer className="shrink-0 border-t-2 border-rule px-6 py-2.5">
         {actor.role === "admin" && (
-          <>
-            <InviteFooter projects={projects} />
-            <DeclareAreaFooter
-              projects={projects}
-              areas={areas}
-              people={staffUsers.map((u) => ({ id: u.id, name: u.name }))}
-            />
-          </>
+          <p className="mb-2 max-w-[90ch] text-[12px] text-muted-foreground">
+            Uma <strong className="text-foreground">área de expertise</strong> é
+            um pedaço do produto (ex.: “checkout”) ligado a caminhos do código
+            (ex.: <span className="font-mono text-[11px]">src/checkout/**</span>).
+            É o que a IA usa para sugerir quem atende cada chamado: declarar que
+            alguém domina uma área é o sinal mais forte; o histórico do git
+            complementa sozinho.
+          </p>
         )}
-        <span className="ml-auto font-mono text-[10.5px] text-muted-foreground">
-          área declarada pesa mais que inferida na sugestão — e a inferida nunca
-          vira declarada sozinha
-        </span>
+        <div className="flex flex-wrap items-center gap-4">
+          {actor.role === "admin" && (
+            <>
+              <InviteFooter projects={projects} />
+              <DeclareAreaFooter
+                projects={projects}
+                areas={areas}
+                people={staffUsers.map((u) => ({ id: u.id, name: u.name }))}
+              />
+            </>
+          )}
+          <span className="ml-auto font-mono text-[10.5px] text-muted-foreground">
+            área declarada pesa mais que inferida na sugestão — e a inferida
+            nunca vira declarada sozinha
+          </span>
+        </div>
       </footer>
     </div>
   );

@@ -44,6 +44,8 @@ export type QueueFilters = {
   status?: (typeof tickets.$inferSelect)["status"];
   assigneeId?: string;
   origins?: ("portal" | "whatsapp" | "internal")[];
+  /** Chamados (support/bug) e Tasks vivem em áreas separadas do dashboard */
+  types?: ("task" | "support" | "bug")[];
   search?: string;
 };
 
@@ -128,6 +130,9 @@ export async function listQueue(
     filters.assigneeId ? eq(tickets.assigneeId, filters.assigneeId) : undefined,
     filters.origins && filters.origins.length > 0
       ? inArray(tickets.origin, filters.origins)
+      : undefined,
+    filters.types && filters.types.length > 0
+      ? inArray(tickets.type, filters.types)
       : undefined,
     filters.search
       ? sql`(${tickets.title} ilike ${"%" + filters.search + "%"} or ${tickets.body} ilike ${"%" + filters.search + "%"})`

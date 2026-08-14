@@ -29,16 +29,18 @@ export function DeclareAreaFooter({
         <button
           type="button"
           onClick={() => setMode("declare")}
-          className="flex h-8 items-center bg-primary px-3 text-[12.5px] font-medium text-primary-foreground"
+          className="flex h-8 items-center border border-input px-3 text-[12.5px] font-medium hover:bg-accent"
+          title="Dizer que uma pessoa domina uma área — vira o sinal mais forte da triagem"
         >
-          Declarar uma área
+          Declarar quem domina o quê
         </button>
         <button
           type="button"
           onClick={() => setMode("area")}
           className="flex h-8 items-center border border-input px-3 text-[12.5px] font-medium hover:bg-accent"
+          title="Nomear um pedaço do produto e ligá-lo a caminhos do código"
         >
-          Criar área nova
+          Nova área de expertise
         </button>
       </div>
     );

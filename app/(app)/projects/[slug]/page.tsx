@@ -60,7 +60,15 @@ export default async function ProjectPage({
             {project.repoUrl.replace(/^(https:\/\/|file:\/\/)/, "")}
           </span>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {actor.role === "admin" && (
+            <Link
+              href={`/projects/${project.slug}/edit`}
+              className="flex h-8 items-center border border-input px-3 text-[13px] font-medium hover:bg-accent"
+            >
+              Editar projeto
+            </Link>
+          )}
           <ReindexButton projectId={project.id} disabled={!project.repoUrl} />
         </div>
       </header>

@@ -6,7 +6,13 @@ import Link from "next/link";
 import type { ProjectSummary } from "@/services/projects";
 import { createInternalTicket } from "./actions";
 
-export function NewTicketForm({ projects }: { projects: ProjectSummary[] }) {
+export function NewTicketForm({
+  projects,
+  defaultType = "task",
+}: {
+  projects: ProjectSummary[];
+  defaultType?: "task" | "bug" | "support";
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +68,7 @@ export function NewTicketForm({ projects }: { projects: ProjectSummary[] }) {
               <span className="text-[13.5px] font-semibold">Tipo</span>
               <select
                 name="type"
+                defaultValue={defaultType}
                 className="h-8 border border-input bg-background px-2 font-mono text-[12px]"
               >
                 <option value="task">task</option>

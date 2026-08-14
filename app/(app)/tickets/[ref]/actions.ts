@@ -76,6 +76,53 @@ export async function sendReply(input: {
   return { ok: true };
 }
 
+const taskFromTicketSchema = z.object({ ticketId: z.uuid() });
+
+/**
+ * Gera uma task interna a partir de um chamado: o chamado segue sendo a
+ * conversa com quem abriu; a task é o trabalho do time, ligada a ele.
+ */
+export async function createTaskFromTicket(input: {
+  ticketId: string;
+}): Promise<{ ok: boolean; number?: number; error?: string }> {
+  const actor = await getActor();
+  if (!actor) return { ok: false, error: "Sessão expirada." };
+  const parsed = taskFromTicketSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Chamado inválido." };
+
+  const source = await db.query.tickets.findFirst({
+    where: eq(ticketsTable.id, parsed.data.ticketId),
+  });
+  if (!source || source.type === "task") {
+    return { ok: false, error: "Chamado não encontrado." };
+  }
+
+  const { createTicket } = await import("@/services/tickets");
+  const { formatTicketRef } = await import("@/lib/format");
+  const sourceRef = formatTicketRef(source.number);
+
+  const result = await createTicket(actor, {
+    projectId: source.projectId,
+    type: "task",
+    title: source.title,
+    body: `Task gerada a partir do chamado ${sourceRef}.\n\n---\n\n${source.body}`,
+    priority: source.priority,
+    origin: "internal",
+    externalRef: `ticket:${source.id}`,
+  });
+  if (!result.ok) return { ok: false, error: "Não deu para criar a task." };
+
+  // Registro no chamado, invisível para quem abriu
+  await postMessage(actor, {
+    ticketId: source.id,
+    body: `Task ${formatTicketRef(result.value.number)} criada a partir deste chamado.`,
+    internal: true,
+  });
+
+  revalidatePath(`/tickets/${source.number}`);
+  return { ok: true, number: result.value.number };
+}
+
 const assignSchema = z.object({
   ticketId: z.uuid(),
   assigneeId: z.string().nullable(),

@@ -14,6 +14,9 @@ export type ProjectSummary = {
   name: string;
   slug: string;
   openCount: number;
+  portalEnabled: boolean;
+  repoUrl: string | null;
+  description: string | null;
 };
 
 /** Projetos visíveis ao ator, com contagem de chamados abertos (rail da fila). */
@@ -50,7 +53,47 @@ export async function listProjectsForActor(actor: Actor): Promise<ProjectSummary
     name: p.name,
     slug: p.slug,
     openCount: byProject.get(p.id) ?? 0,
+    portalEnabled: p.portalEnabled,
+    repoUrl: p.repoUrl,
+    description: p.description,
   }));
+}
+
+/** Edição de projeto (admin). Slug não muda — é a URL pública do portal. */
+export async function updateProject(
+  actor: Actor,
+  projectId: string,
+  input: {
+    name: string;
+    description?: string | null;
+    repoUrl?: string | null;
+    defaultBranch: string;
+    portalEnabled: boolean;
+    accentColor?: string | null;
+  },
+): Promise<Result<typeof projects.$inferSelect, "forbidden" | NotFound>> {
+  if (!canManageProjects(actor)) return err("forbidden");
+  const [updated] = await db
+    .update(projects)
+    .set({
+      name: input.name,
+      description: input.description ?? null,
+      repoUrl: input.repoUrl ?? null,
+      defaultBranch: input.defaultBranch,
+      portalEnabled: input.portalEnabled,
+      accentColor: input.accentColor ?? null,
+    })
+    .where(eq(projects.id, projectId))
+    .returning();
+  if (!updated) return err("not_found");
+  await logAudit({
+    actorUserId: actor.id,
+    actorKind: "user",
+    action: "project.update",
+    entityType: "project",
+    entityId: projectId,
+  });
+  return ok(updated);
 }
 
 export async function getProjectBySlug(

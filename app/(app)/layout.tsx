@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getActor } from "@/lib/auth/session";
 import { ThemeToggle } from "@/components/patch/theme-toggle";
+import { NavSidebar } from "@/components/patch/nav-sidebar";
 
 export default async function AppLayout({
   children,
@@ -16,34 +17,12 @@ export default async function AppLayout({
   return (
     <div id="app-shell">
       <header className="rule-b flex h-[46px] shrink-0 items-center gap-6 px-4">
-        <Link href="/" className="text-[15px] font-extrabold tracking-tight text-foreground">
+        <Link
+          href="/"
+          className="text-[15px] font-extrabold tracking-tight text-foreground"
+        >
           Patch
         </Link>
-        <nav className="flex items-center gap-4 text-[13px]">
-          <Link href="/" className="text-foreground hover:underline hover:underline-offset-3">
-            fila
-          </Link>
-          <Link
-            href="/team"
-            className="text-foreground hover:underline hover:underline-offset-3"
-          >
-            equipe
-          </Link>
-          <Link
-            href="/tickets/new"
-            className="text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-3"
-          >
-            + chamado
-          </Link>
-          {actor.role === "admin" && (
-            <Link
-              href="/projects/new"
-              className="text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-3"
-            >
-              + projeto
-            </Link>
-          )}
-        </nav>
         <div className="ml-auto flex items-center gap-4">
           <Link
             href="/design"
@@ -57,7 +36,10 @@ export default async function AppLayout({
           </span>
         </div>
       </header>
-      {children}
+      <div className="flex min-h-0 flex-1">
+        <NavSidebar />
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</main>
+      </div>
     </div>
   );
 }
