@@ -2,6 +2,10 @@ import "dotenv/config";
 import { getBoss, QUEUE, type QueuePayloads, type QueueName } from "@/lib/queue";
 import { createLogger } from "@/lib/logger";
 import { handleEmail } from "./handlers/email";
+import {
+  handleWhatsappInbound,
+  handleWhatsappSend,
+} from "./handlers/whatsapp";
 
 /**
  * Background Worker: processa todas as filas do pg-boss.
@@ -37,6 +41,8 @@ async function main() {
   }
 
   register(QUEUE.email, handleEmail);
+  register(QUEUE.whatsappInbound, handleWhatsappInbound);
+  register(QUEUE.whatsappSend, handleWhatsappSend);
 
   log.info("worker no ar", { queues: Object.values(QUEUE) });
 

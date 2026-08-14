@@ -30,12 +30,15 @@ const ACTIVITY_LABEL: Record<string, string> = {
   "suggestion.rejected": "sugestão recusada",
 };
 
+export type WaWindow = { open: boolean; closesAt: string | null } | null;
+
 export function TicketScreen({
   ticket,
   messages,
   members,
   activity,
   aiSlot,
+  waWindow = null,
 }: {
   ticket: TicketDetail;
   messages: MessageItem[];
@@ -43,6 +46,7 @@ export function TicketScreen({
   activity: ActivityItem[];
   /** bloco de sugestão da IA — entra na etapa de triagem */
   aiSlot?: React.ReactNode;
+  waWindow?: WaWindow;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"autor" | "interna">("autor");
@@ -217,9 +221,13 @@ export function TicketScreen({
                 {tab === "autor" ? `Responder a ${firstName}` : "Salvar nota interna"}
               </button>
               <span className="font-mono text-[10.5px] text-muted-foreground">
-                {tab === "autor"
-                  ? "sai por e-mail · quem abriu recebe agora"
-                  : `não vai para ${ticket.origin === "internal" ? "o autor" : "a autora"} · fica no histórico do chamado`}
+                {tab === "interna"
+                  ? `não vai para ${ticket.origin === "internal" ? "o autor" : "a autora"} · fica no histórico do chamado`
+                  : ticket.origin === "whatsapp"
+                    ? waWindow?.open
+                      ? "sai por whatsapp · quem abriu recebe agora"
+                      : "janela de 24h fechada · sai só quando a pessoa escrever de novo"
+                    : "sai por e-mail · quem abriu recebe agora"}
               </span>
             </div>
           </div>
@@ -240,6 +248,18 @@ export function TicketScreen({
                 ? ` · ${maskPhone(ticket.externalRef)}`
                 : ""}
             </dd>
+            {waWindow && (
+              <>
+                <dt className="text-muted-foreground">janela 24h</dt>
+                <dd className="font-mono text-[11.5px]">
+                  {waWindow.open && waWindow.closesAt ? (
+                    <WindowCountdown closesAt={waWindow.closesAt} />
+                  ) : (
+                    <span className="text-ai-strong">fechada</span>
+                  )}
+                </dd>
+              </>
+            )}
             <dt className="text-muted-foreground">
               {ticket.origin === "internal" ? "autor" : "autora"}
             </dt>
@@ -330,6 +350,19 @@ export function TicketScreen({
         </section>
       </aside>
     </div>
+  );
+}
+
+function WindowCountdown({ closesAt }: { closesAt: string }) {
+  const remainingMs = new Date(closesAt).getTime() - Date.now();
+  const hours = Math.floor(remainingMs / 3_600_000);
+  const minutes = Math.floor((remainingMs % 3_600_000) / 60_000);
+  const label = hours > 0 ? `${hours}h${String(minutes).padStart(2, "0")}` : `${minutes}min`;
+  // Menos de 4h para fechar merece destaque — depois disso só resta template aprovado.
+  return (
+    <span className={hours < 4 ? "text-ai-strong" : undefined}>
+      fecha em {label}
+    </span>
   );
 }
 

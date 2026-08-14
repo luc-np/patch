@@ -7,7 +7,11 @@ import { postMessage } from "@/services/messages";
 import { assignTicket, updateTicketStatus } from "@/services/tickets";
 import { enqueue, QUEUE } from "@/lib/queue";
 import { db } from "@/db/client";
-import { users, tickets as ticketsTable } from "@/db/schema";
+import {
+  users,
+  tickets as ticketsTable,
+  ticketMessages as ticketMessagesTable,
+} from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 const replySchema = z.object({
@@ -30,8 +34,22 @@ export async function sendReply(input: {
   const result = await postMessage(actor, parsed.data);
   if (!result.ok) return { ok: false, error: "Não deu para enviar agora." };
 
-  // Resposta pública a autor externo sai por e-mail (WhatsApp entra na etapa do canal).
-  const { ticket } = result.value;
+  const { ticket, message } = result.value;
+
+  // Resposta pública em chamado de WhatsApp sai também pelo canal de origem.
+  if (!parsed.data.internal && ticket.origin === "whatsapp") {
+    await db
+      .update(ticketMessagesTable)
+      .set({ delivery: { channel: "whatsapp", status: "queued" } })
+      .where(eq(ticketMessagesTable.id, message.id));
+    await enqueue(
+      QUEUE.whatsappSend,
+      { ticketMessageId: message.id },
+      { retryLimit: 5, retryBackoff: true },
+    );
+  }
+
+  // Autor externo com e-mail real também recebe por e-mail.
   if (!parsed.data.internal && ticket.authorId !== actor.id) {
     const author = await db.query.users.findFirst({
       where: eq(users.id, ticket.authorId),
