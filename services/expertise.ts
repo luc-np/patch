@@ -1,44 +1,33 @@
-import picomatch from "picomatch";
-import { eq, and, inArray, max, sql } from "drizzle-orm";
+import { eq, and, inArray, max, notInArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import {
-  users,
-  projects,
-  projectMembers,
-  expertiseAreas,
-  memberExpertise,
-  codeOwnership,
-} from "@/db/schema";
+import { users, projects, projectMembers, codeOwnership } from "@/db/schema";
 import {
   canViewTeam,
-  canManageExpertise,
+  canManageProjects,
   type Actor,
 } from "@/lib/auth/policies";
 import { ok, err, type Result, type NotFound } from "@/lib/result";
+import { getAiProvider } from "@/lib/ai/provider";
 import { logAudit } from "@/lib/audit";
 
-export type ExpertiseChip = {
-  areaId: string;
-  areaName: string;
-  projectSlug: string;
-  /** prova do sinal inferido: nº de commits nos globs da área, ou "sinal fraco" */
-  commitCount?: number;
-  weak?: boolean;
+export type MemberProjectLink = {
+  projectId: string;
+  slug: string;
+  role: (typeof projectMembers.$inferSelect)["role"];
 };
 
 export type TeamMember = {
   userId: string;
   name: string;
-  memberRole: string;
-  declared: ExpertiseChip[];
-  inferred: ExpertiseChip[];
+  email: string;
+  /** perfil de especialidades em texto livre — o que a IA lê */
+  expertise: string | null;
+  projects: MemberProjectLink[];
   lastCommitAt: Date | null;
 };
 
-/** A tela de equipe: quem sabe o quê, e DE ONDE vem esse dado. */
-export async function getTeamExpertise(
-  actor: Actor,
-): Promise<Result<TeamMember[], NotFound>> {
+/** A equipe: quem é, o que faz (perfil) e em quais projetos está. */
+export async function getTeam(actor: Actor): Promise<Result<TeamMember[], NotFound>> {
   if (!canViewTeam(actor)) return err("not_found");
 
   const visibleProjects =
@@ -47,55 +36,24 @@ export async function getTeamExpertise(
       : actor.projectIds.length === 0
         ? []
         : await db.select().from(projects).where(inArray(projects.id, actor.projectIds));
-  if (visibleProjects.length === 0) return ok([]);
-  const projectIds = visibleProjects.map((p) => p.id);
   const slugById = new Map(visibleProjects.map((p) => [p.id, p.slug]));
 
-  const memberships = await db
+  const staffUsers = await db
     .select({
-      userId: projectMembers.userId,
-      role: projectMembers.role,
+      id: users.id,
       name: users.name,
-      globalRole: users.role,
+      email: users.email,
+      expertise: users.expertise,
     })
-    .from(projectMembers)
-    .innerJoin(users, eq(projectMembers.userId, users.id))
-    .where(inArray(projectMembers.projectId, projectIds));
+    .from(users)
+    .where(inArray(users.role, ["admin", "staff"]));
+  if (staffUsers.length === 0) return ok([]);
+  const staffIds = staffUsers.map((u) => u.id);
 
-  const staff = new Map<string, { name: string; role: string }>();
-  for (const m of memberships) {
-    if (m.globalRole === "guest") continue;
-    if (!staff.has(m.userId)) staff.set(m.userId, { name: m.name, role: m.role });
-  }
-  if (staff.size === 0) return ok([]);
-  const staffIds = [...staff.keys()];
-
-  const areas = await db.query.expertiseAreas.findMany({
-    where: inArray(expertiseAreas.projectId, projectIds),
-  });
-  const areaById = new Map(areas.map((a) => [a.id, a]));
-
-  const expertise = areas.length
-    ? await db
-        .select()
-        .from(memberExpertise)
-        .where(
-          and(
-            inArray(memberExpertise.areaId, areas.map((a) => a.id)),
-            inArray(memberExpertise.userId, staffIds),
-          ),
-        )
-    : [];
-
-  const ownership = await db
+  const memberships = await db
     .select()
-    .from(codeOwnership)
-    .where(
-      and(
-        inArray(codeOwnership.projectId, projectIds),
-        inArray(codeOwnership.userId, staffIds),
-      ),
-    );
+    .from(projectMembers)
+    .where(inArray(projectMembers.userId, staffIds));
 
   const lastCommits = await db
     .select({ userId: codeOwnership.userId, last: max(codeOwnership.lastCommitAt) })
@@ -104,117 +62,86 @@ export async function getTeamExpertise(
     .groupBy(codeOwnership.userId);
   const lastByUser = new Map(lastCommits.map((r) => [r.userId, r.last]));
 
-  // Commits por (usuário, área) — a prova ao lado do chip inferido
-  const commitsByUserArea = new Map<string, number>();
-  for (const area of areas) {
-    if (area.globs.length === 0) continue;
-    const isMatch = picomatch(area.globs);
-    for (const row of ownership) {
-      if (!row.userId || row.projectId !== area.projectId || !isMatch(row.path)) continue;
-      const key = `${row.userId} ${area.id}`;
-      commitsByUserArea.set(key, (commitsByUserArea.get(key) ?? 0) + row.commitCount);
-    }
-  }
-
-  const members: TeamMember[] = [...staff.entries()].map(([userId, info]) => {
-    const declared: ExpertiseChip[] = [];
-    const inferred: ExpertiseChip[] = [];
-    for (const row of expertise) {
-      if (row.userId !== userId) continue;
-      const area = areaById.get(row.areaId);
-      if (!area) continue;
-      const chip: ExpertiseChip = {
-        areaId: area.id,
-        areaName: area.name,
-        projectSlug: slugById.get(area.projectId) ?? "",
-      };
-      if (row.source === "manual") {
-        declared.push(chip);
-      } else {
-        const commits = commitsByUserArea.get(`${userId} ${row.areaId}`) ?? 0;
-        inferred.push({ ...chip, commitCount: commits, weak: row.weight < 0.3 });
-      }
-    }
-    return {
-      userId,
-      name: info.name,
-      memberRole: info.role,
-      declared,
-      inferred,
-      lastCommitAt: lastByUser.get(userId) ?? null,
-    };
-  });
+  const members: TeamMember[] = staffUsers.map((u) => ({
+    userId: u.id,
+    name: u.name,
+    email: u.email,
+    expertise: u.expertise,
+    projects: memberships
+      .filter((m) => m.userId === u.id && slugById.has(m.projectId))
+      .map((m) => ({
+        projectId: m.projectId,
+        slug: slugById.get(m.projectId) ?? "",
+        role: m.role,
+      })),
+    lastCommitAt: lastByUser.get(u.id) ?? null,
+  }));
 
   members.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   return ok(members);
 }
 
-export async function listAreasForActor(actor: Actor) {
-  if (!canViewTeam(actor)) return [];
-  const where =
-    actor.role === "admin"
-      ? undefined
-      : actor.projectIds.length === 0
-        ? sql`false`
-        : inArray(expertiseAreas.projectId, actor.projectIds);
-  const rows = await db
-    .select({
-      id: expertiseAreas.id,
-      name: expertiseAreas.name,
-      projectSlug: projects.slug,
-    })
-    .from(expertiseAreas)
-    .innerJoin(projects, eq(expertiseAreas.projectId, projects.id))
-    .where(where);
-  return rows;
-}
-
-/** Cria uma área nomeada com globs (admin). */
-export async function createArea(
-  actor: Actor,
-  input: { projectId: string; name: string; description?: string; globs: string[] },
-): Promise<Result<void, "forbidden" | "duplicate">> {
-  if (!canManageExpertise(actor)) return err("forbidden");
-  const [created] = await db
-    .insert(expertiseAreas)
-    .values(input)
-    .onConflictDoNothing()
-    .returning();
-  if (!created) return err("duplicate", "Já existe uma área com este nome no projeto.");
-  await logAudit({
-    actorUserId: actor.id,
-    actorKind: "user",
-    action: "expertise_area.create",
-    entityType: "project",
-    entityId: input.projectId,
-    metadata: { name: input.name },
-  });
-  return ok(undefined);
-}
-
 /**
- * Declara expertise manual (o seed humano). A inferida do git vive em linha
- * própria e NUNCA vira declarada sozinha.
+ * Atualiza o perfil do funcionário: o texto de especialidades vira embedding
+ * (é ele que a triagem compara com cada chamado) e os vínculos de projeto são
+ * sincronizados — um dev pode estar em quantos projetos precisar.
  */
-export async function declareExpertise(
+export async function updateMemberProfile(
   actor: Actor,
-  input: { areaId: string; userId: string },
-): Promise<Result<void, "forbidden">> {
-  if (!canManageExpertise(actor)) return err("forbidden");
+  input: {
+    userId: string;
+    expertise: string;
+    memberships: { projectId: string; role: (typeof projectMembers.$inferSelect)["role"] }[];
+  },
+): Promise<Result<void, "forbidden" | NotFound>> {
+  if (!canManageProjects(actor)) return err("forbidden");
+
+  const user = await db.query.users.findFirst({ where: eq(users.id, input.userId) });
+  if (!user || user.role === "guest") return err("not_found");
+
+  const text = input.expertise.trim();
+  let embedding: number[] | null = null;
+  if (text.length > 0) {
+    const [vector] = await getAiProvider().embed([text], { inputType: "document" });
+    embedding = vector ?? null;
+  }
+
   await db
-    .insert(memberExpertise)
-    .values({ areaId: input.areaId, userId: input.userId, source: "manual", weight: 1 })
-    .onConflictDoUpdate({
-      target: [memberExpertise.areaId, memberExpertise.userId, memberExpertise.source],
-      set: { weight: 1, updatedAt: new Date() },
-    });
+    .update(users)
+    .set({ expertise: text || null, expertiseEmbedding: embedding })
+    .where(eq(users.id, input.userId));
+
+  // Sincroniza vínculos: adiciona os marcados, remove os desmarcados.
+  const wantedIds = input.memberships.map((m) => m.projectId);
+  if (wantedIds.length > 0) {
+    await db
+      .delete(projectMembers)
+      .where(
+        and(
+          eq(projectMembers.userId, input.userId),
+          notInArray(projectMembers.projectId, wantedIds),
+        ),
+      );
+  } else {
+    await db.delete(projectMembers).where(eq(projectMembers.userId, input.userId));
+  }
+  for (const m of input.memberships) {
+    await db
+      .insert(projectMembers)
+      .values({ projectId: m.projectId, userId: input.userId, role: m.role })
+      .onConflictDoUpdate({
+        target: [projectMembers.projectId, projectMembers.userId],
+        set: { role: m.role },
+      });
+  }
+
   await logAudit({
     actorUserId: actor.id,
     actorKind: "user",
-    action: "expertise.declare",
+    action: "profile.update",
     entityType: "user",
     entityId: input.userId,
-    metadata: { areaId: input.areaId },
+    metadata: { projects: wantedIds.length, hasExpertise: text.length > 0 },
   });
   return ok(undefined);
 }

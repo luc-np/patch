@@ -15,9 +15,9 @@ import { users } from "./auth";
 import { projects } from "./core";
 import { documentSource, ingestionStatus } from "./enums";
 
-/** Dimensão do embedding (voyage-code-3 com output_dimension 1024).
- *  Trocar de modelo exige migration + reindexação total — por isso vive num único lugar. */
-export const EMBEDDING_DIMENSIONS = 1024;
+import { EMBEDDING_DIMENSIONS } from "./constants";
+
+export { EMBEDDING_DIMENSIONS };
 
 const tsvector = customType<{ data: string }>({
   dataType() {

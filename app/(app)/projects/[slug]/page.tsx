@@ -194,7 +194,7 @@ export default async function ProjectPage({
           </section>
 
           <section className="border-b border-border p-5">
-            <p className="kicker mb-2">pastas sem dono declarado</p>
+            <p className="kicker mb-2">pastas mais ativas no git</p>
             {unowned.length === 0 ? (
               <p className="text-[12.5px] text-muted-foreground">
                 Todas as pastas com atividade têm área declarada.
@@ -209,7 +209,8 @@ export default async function ProjectPage({
               </ul>
             )}
             <p className="mt-2 text-[11.5px] text-muted-foreground">
-              Declarar dono melhora a sugestão da IA nessas áreas.
+              Citar essas áreas no perfil de quem cuida delas (tela Equipe)
+              melhora a sugestão da IA.
             </p>
           </section>
 

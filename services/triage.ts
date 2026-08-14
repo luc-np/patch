@@ -1,12 +1,9 @@
-import picomatch from "picomatch";
 import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   tickets,
   users,
   projectMembers,
-  expertiseAreas,
-  memberExpertise,
   codeOwnership,
   assignmentSuggestions,
   ingestionRuns,
@@ -92,13 +89,19 @@ export async function runTriage(ticketId: string, log: Logger): Promise<void> {
 
   // 2. Candidatos determinísticos: só membros staff do projeto
   const members = await db
-    .select({ userId: projectMembers.userId, name: users.name, role: users.role })
+    .select({
+      userId: projectMembers.userId,
+      name: users.name,
+      role: users.role,
+      expertise: users.expertise,
+      expertiseEmbedding: users.expertiseEmbedding,
+    })
     .from(projectMembers)
     .innerJoin(users, eq(projectMembers.userId, users.id))
     .where(eq(projectMembers.projectId, ticket.projectId));
   const staff = members.filter((m) => m.role !== "guest");
 
-  const candidates = await buildCandidates(ticket.projectId, staff, hits);
+  const candidates = await buildCandidates(ticket.projectId, staff, hits, query);
 
   // 3. Uma chamada ao modelo, com o conteúdo do chamado delimitado
   const suggestion = await getAiProvider().generateTriage({
@@ -180,10 +183,31 @@ export async function runTriage(ticketId: string, log: Logger): Promise<void> {
   log.info("sugestão registrada", { suggestedUserId, confidence });
 }
 
+type StaffCandidate = {
+  userId: string;
+  name: string;
+  expertise: string | null;
+  expertiseEmbedding: number[] | null;
+};
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += (a[i] ?? 0) * (b[i] ?? 0);
+    normA += (a[i] ?? 0) ** 2;
+    normB += (b[i] ?? 0) ** 2;
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom === 0 ? 0 : dot / denom;
+}
+
 async function buildCandidates(
   projectId: string,
-  staff: { userId: string; name: string }[],
+  staff: StaffCandidate[],
   hits: Awaited<ReturnType<typeof hybridSearch>>,
+  query: string,
 ): Promise<TriageCandidate[]> {
   if (staff.length === 0) return [];
   const staffIds = staff.map((s) => s.userId);
@@ -234,34 +258,24 @@ async function buildCandidates(
     }
   }
 
-  // Sinal 2: expertise por área (declarada pesa 2x a inferida)
-  const areas = await db.query.expertiseAreas.findMany({
-    where: eq(expertiseAreas.projectId, projectId),
-  });
-  const matchedAreas = areas.filter(
-    (a) => a.globs.length > 0 && paths.some((p) => picomatch(a.globs)(p)),
-  );
-  if (matchedAreas.length > 0) {
-    const expertise = await db
-      .select()
-      .from(memberExpertise)
-      .where(
-        and(
-          inArray(
-            memberExpertise.areaId,
-            matchedAreas.map((a) => a.id),
-          ),
-          inArray(memberExpertise.userId, staffIds),
-        ),
-      );
-    const areaName = new Map(matchedAreas.map((a) => [a.id, a.name]));
-    for (const row of expertise) {
-      const weight = row.source === "manual" ? 2.0 : 1.0;
-      addSignal(
-        row.userId,
-        row.weight * weight * 5,
-        `área "${areaName.get(row.areaId)}" (${row.source === "manual" ? "declarada" : "inferida do git"}, peso ${row.weight.toFixed(2)})`,
-      );
+  // Sinal 2: similaridade entre o chamado e o PERFIL de cada pessoa —
+  // o texto de especialidades escrito no cadastro vira vetor e é comparado aqui.
+  const withEmbedding = staff.filter((s) => s.expertiseEmbedding);
+  if (withEmbedding.length > 0) {
+    const [queryVector] = await getAiProvider().embed([query], {
+      inputType: "query",
+    });
+    if (queryVector) {
+      for (const s of withEmbedding) {
+        const similarity = cosineSimilarity(queryVector, s.expertiseEmbedding!);
+        if (similarity > 0.2) {
+          addSignal(
+            s.userId,
+            similarity * 12,
+            `perfil compatível com o chamado (similaridade ${similarity.toFixed(2)})`,
+          );
+        }
+      }
     }
   }
 
@@ -271,6 +285,7 @@ async function buildCandidates(
     return {
       userId: s.userId,
       name: nameById.get(s.userId) ?? s.userId,
+      profile: s.expertise ?? undefined,
       score: (signal?.score ?? 0) / maxScore,
       signals: signal?.texts.slice(0, 6) ?? [],
     };

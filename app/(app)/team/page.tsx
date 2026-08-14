@@ -1,120 +1,64 @@
 import { redirect } from "next/navigation";
 import { getActor } from "@/lib/auth/session";
-import { getTeamExpertise, listAreasForActor } from "@/services/expertise";
+import { getTeam } from "@/services/expertise";
 import { listProjectsForActor } from "@/services/projects";
-import { listStaffUsers } from "@/services/members";
 import { listPendingInvites } from "@/services/invites";
 import { formatShortTime } from "@/lib/format";
-import { DeclareAreaFooter } from "./team-client";
+import { MemberRow } from "./member-row";
 import { InviteFooter } from "./invite-client";
 
-const TEAM_GRID = "200px minmax(0,1fr) minmax(0,1fr) 120px";
+const TEAM_GRID = "200px minmax(0,1.4fr) minmax(180px,0.8fr) 110px 70px";
 
 export default async function TeamPage() {
   const actor = await getActor();
   if (!actor || actor.role === "guest") redirect("/login");
 
-  const teamResult = await getTeamExpertise(actor);
+  const teamResult = await getTeam(actor);
   const team = teamResult.ok ? teamResult.value : [];
-  const [areas, projects, staffUsers, pendingInvites] = await Promise.all([
-    listAreasForActor(actor),
+  const [projects, pendingInvites] = await Promise.all([
     listProjectsForActor(actor),
-    listStaffUsers(actor),
     listPendingInvites(actor),
   ]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
-        <header className="flex items-baseline gap-6 px-6 pt-6 pb-4">
-          <h1 className="text-[22px]">Equipe e expertise</h1>
-          {/* Legenda: a origem do dado é visível */}
-          <span className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
-            <span className="border border-foreground px-1.5 py-px text-[11px] whitespace-nowrap text-foreground">
-              área declarada
-            </span>
-            = alguém afirmou
-          </span>
-          <span className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
-            <span className="border border-dashed border-muted-foreground px-1.5 py-px text-[11px] whitespace-nowrap">
-              área inferida
-            </span>
-            = o git sugere
+        <header className="flex items-baseline gap-4 px-6 pt-6 pb-4">
+          <h1 className="text-[22px]">Equipe</h1>
+          <span className="font-mono text-[11px] text-muted-foreground tnum">
+            {team.length}
           </span>
         </header>
 
         <div
-          className="grid h-7 items-center border-b-2 border-rule px-6 font-mono text-[10px] tracking-[0.1em] text-muted-foreground uppercase"
+          className="grid h-7 items-center gap-3 border-b-2 border-rule px-6 font-mono text-[10px] tracking-[0.1em] text-muted-foreground uppercase"
           style={{ gridTemplateColumns: TEAM_GRID }}
         >
           <span>pessoa</span>
-          <span>áreas declaradas</span>
-          <span>áreas inferidas do git</span>
+          <span>o que faz</span>
+          <span>projetos</span>
           <span className="text-right">último commit</span>
+          <span />
         </div>
 
         {team.length === 0 && (
           <p className="px-6 py-8 text-[13px] text-muted-foreground">
-            Nenhum membro staff nos seus projetos ainda.
+            Nenhum membro staff ainda — convide alguém pelo botão abaixo.
           </p>
         )}
         {team.map((member) => (
-          <div
+          <MemberRow
             key={member.userId}
-            className="grid items-start gap-3 border-b border-border px-6 py-3"
-            style={{ gridTemplateColumns: TEAM_GRID }}
-          >
-            <div>
-              <p className="text-[13.5px] font-semibold">{member.name}</p>
-              <p className="font-mono text-[10.5px] text-muted-foreground">
-                {member.memberRole}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5">
-              {member.declared.length === 0 ? (
-                <span className="text-[12px] text-muted-foreground">—</span>
-              ) : (
-                member.declared.map((chip) => (
-                  <span
-                    key={chip.areaId}
-                    className="border border-foreground px-1.5 py-px text-[11.5px] whitespace-nowrap"
-                    title={chip.projectSlug}
-                  >
-                    {chip.areaName}
-                  </span>
-                ))
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              {member.inferred.length === 0 ? (
-                <span className="text-[12px] text-muted-foreground">—</span>
-              ) : (
-                member.inferred.map((chip) => (
-                  <span key={chip.areaId} className="flex items-center gap-1">
-                    <span
-                      className="border border-dashed border-muted-foreground px-1.5 py-px text-[11.5px] whitespace-nowrap text-muted-foreground"
-                      title={chip.projectSlug}
-                    >
-                      {chip.areaName}
-                    </span>
-                    <span className="font-mono text-[10px] text-muted-foreground tnum">
-                      {chip.weak
-                        ? "sinal fraco"
-                        : `${chip.commitCount ?? 0} commits`}
-                    </span>
-                  </span>
-                ))
-              )}
-            </div>
-
-            <span className="text-right font-mono text-[11px] text-muted-foreground tnum">
-              {member.lastCommitAt
+            member={{
+              ...member,
+              lastCommitLabel: member.lastCommitAt
                 ? formatShortTime(new Date(member.lastCommitAt))
-                : "—"}
-            </span>
-          </div>
+                : "—",
+            }}
+            allProjects={projects.map((p) => ({ id: p.id, slug: p.slug }))}
+            canEdit={actor.role === "admin"}
+            grid={TEAM_GRID}
+          />
         ))}
       </div>
 
@@ -136,30 +80,11 @@ export default async function TeamPage() {
       )}
 
       <footer className="shrink-0 border-t-2 border-rule px-6 py-2.5">
-        {actor.role === "admin" && (
-          <p className="mb-2 max-w-[90ch] text-[12px] text-muted-foreground">
-            Uma <strong className="text-foreground">área de expertise</strong> é
-            um pedaço do produto (ex.: “checkout”) ligado a caminhos do código
-            (ex.: <span className="font-mono text-[11px]">src/checkout/**</span>).
-            É o que a IA usa para sugerir quem atende cada chamado: declarar que
-            alguém domina uma área é o sinal mais forte; o histórico do git
-            complementa sozinho.
-          </p>
-        )}
         <div className="flex flex-wrap items-center gap-4">
-          {actor.role === "admin" && (
-            <>
-              <InviteFooter projects={projects} />
-              <DeclareAreaFooter
-                projects={projects}
-                areas={areas}
-                people={staffUsers.map((u) => ({ id: u.id, name: u.name }))}
-              />
-            </>
-          )}
+          {actor.role === "admin" && <InviteFooter projects={projects} />}
           <span className="ml-auto font-mono text-[10.5px] text-muted-foreground">
-            área declarada pesa mais que inferida na sugestão — e a inferida
-            nunca vira declarada sozinha
+            o perfil de cada pessoa vira vetor e alimenta a sugestão de
+            responsável — quanto mais específico, melhor a triagem
           </span>
         </div>
       </footer>

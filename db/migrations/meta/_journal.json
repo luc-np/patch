@@ -15,6 +15,13 @@
       "when": 1786734532963,
       "tag": "0001_pink_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786741839388,
+      "tag": "0002_careful_landau",
+      "breakpoints": true
     }
   ]
 }

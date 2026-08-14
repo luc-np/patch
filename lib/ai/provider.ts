@@ -12,6 +12,8 @@ export type EmbedInputType = "document" | "query";
 export type TriageCandidate = {
   userId: string;
   name: string;
+  /** perfil de especialidades escrito pelo admin — o modelo lê na íntegra */
+  profile?: string;
   signals: string[]; // sinais numéricos já computados ("9 commits em src/checkout nos últimos 90d")
   score: number; // 0..1, determinístico
 };

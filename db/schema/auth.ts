@@ -4,8 +4,10 @@ import {
   boolean,
   timestamp,
   index,
+  vector,
 } from "drizzle-orm/pg-core";
 import { userRole } from "./enums";
+import { EMBEDDING_DIMENSIONS } from "./constants";
 
 /** Tabelas no formato do better-auth (ids em text), com o papel global como campo extra. */
 export const users = pgTable("users", {
@@ -15,6 +17,12 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
   role: userRole("role").notNull().default("guest"),
+  /** Perfil de especialidades em texto livre ("cuida do e-commerce, pega o que é novo…").
+   *  Vira vetor e alimenta a sugestão de responsável da triagem. */
+  expertise: text("expertise"),
+  expertiseEmbedding: vector("expertise_embedding", {
+    dimensions: EMBEDDING_DIMENSIONS,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -69,7 +69,7 @@ export async function generateTriage(
   const candidatesText = context.candidates
     .map(
       (c) =>
-        `- id: ${c.userId} · nome: ${c.name} · score determinístico: ${c.score.toFixed(2)}\n  sinais: ${c.signals.join("; ") || "nenhum"}`,
+        `- id: ${c.userId} · nome: ${c.name} · score determinístico: ${c.score.toFixed(2)}\n  perfil: ${c.profile?.replace(/\n/g, " ") ?? "(sem perfil cadastrado)"}\n  sinais: ${c.signals.join("; ") || "nenhum"}`,
     )
     .join("\n");
 
